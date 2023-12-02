@@ -4,7 +4,7 @@ import matplotlib.transforms as mtransforms
 import numpy as np
 import matplotlib.pyplot as plt
 
-def detectCorners(imageName):
+def detectCorners(imageName, parametersHarris):
 	'''
 		Copied from: https://machinelearningmastery.com/opencv_edges_and_corners/
 
@@ -20,9 +20,7 @@ def detectCorners(imageName):
 	gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 	
 	# Detect corners using the Harris method
-	#dst = cv2.cornerHarris(gray, 3, 5, 0.2)
-	#dst = cv2.cornerHarris(gray, 2, 3, 0.1)
-	dst = cv2.cornerHarris(gray, 2, 31, 0.04)
+	dst = cv2.cornerHarris(gray, *parametersHarris)
 
 	# Create a boolean bitmap of corner positions
 	corners = dst > 0.05 * dst.max()
@@ -45,20 +43,20 @@ def plotImage(imageName, cornerPoints=np.array([])):
 			cornerPoints <-> numpy.ndarray where the i-th row contains [x, y] coordinates of the i-th corner
 	'''
 	img = mpimg.imread(imageName)
-	imgplot = plt.imshow(img)
+	fig, ax = plt.subplots(figsize=(7, 7), dpi=100)
+	imgplot = ax.imshow(img)
 	if cornerPoints.size > 0:
-		plt.scatter(cornerPoints[:, 0], cornerPoints[:, 1], color='tab:blue', alpha=0.5)
-	plt.show()
+		ax.scatter(cornerPoints[:, 0], cornerPoints[:, 1], color='tab:blue', alpha=0.5)
     
     
-def transformImage(imageName, T, returnLengthTransformedEdge=False):
+def transformImage(imageName, T, parametersHarris, returnLengthTransformedEdge=False):
 	# Load the image
 	img = cv2.imread(imageName)
 	yLen, xLen = img.shape[:2]
 	cornersImage = np.array([[0, 0],
-							 [0, yLen],
-							 [xLen, yLen],
-							 [xLen, 0]])
+				 			 [0, yLen],
+				 			 [xLen, yLen],
+			         		 [xLen, 0]])
 
 	tCI = cornersImage @ T
 	xLimits = (np.min(tCI[:, 0]), np.max(tCI[:, 0]))
@@ -71,19 +69,11 @@ def transformImage(imageName, T, returnLengthTransformedEdge=False):
 	
 	dst = cv2.warpAffine(img, affineMatrix[:2], (int(xLimits[1]-xLimits[0]), int(yLimits[1]-yLimits[0])))
 	
-	'''
-	cv2.imwrite('transformed_' + imageName, dst)
-	
-	# Load the image
-	img = cv2.imread(imageName)
-	'''
 	# Convert to grayscale
 	gray = cv2.cvtColor(dst, cv2.COLOR_BGR2GRAY)
 	
 	# Detect corners using the Harris method
-	#dst2 = cv2.cornerHarris(gray, 3, 5, 0.1)
-	#dst2 = cv2.cornerHarris(gray, 2, 3, 0.04)
-	dst2 = cv2.cornerHarris(gray, 2, 31, 0.04)
+	dst2 = cv2.cornerHarris(gray, *parametersHarris)
 	
 	# Create a boolean bitmap of corner positions
 	corners = dst2 > 0.05 * dst2.max()
@@ -98,7 +88,6 @@ def transformImage(imageName, T, returnLengthTransformedEdge=False):
 	swappedCoords = swappedCoords + np.array([[xLimits[0], yLimits[0]] for i in range(len(swappedCoords))])
 	
 	if returnLengthTransformedEdge:
-		#return swappedCoords, np.sqrt(np.dot(T.T @ np.array([xLen, 0]), T.T @ np.array([xLen, 0])))
 		return swappedCoords, abs(xLen)
 
 	return swappedCoords
@@ -124,7 +113,7 @@ def plotTransformedImage(imageName, T, cornerPointsTransformed, Y, drawLines=Fal
 	xLimits = (np.min(tCI[:, 0]), np.max(tCI[:, 0]))
 	yLimits = (np.min(tCI[:, 1]), np.max(tCI[:, 1]))
 
-	fig, ax = plt.subplots(figsize=(10, 10))
+	fig, ax = plt.subplots(figsize=(7, 7), dpi=100)
 	imgTransformed = ax.imshow(img)
 
 	affineMatrix = np.eye(3)
@@ -138,7 +127,8 @@ def plotTransformedImage(imageName, T, cornerPointsTransformed, Y, drawLines=Fal
 			ax.plot([cornerPointsTransformed[i, 0], Y[i, 0]], [cornerPointsTransformed[i, 1], Y[i, 1]], color='white', alpha=0.5)
 	
 	ax.scatter(Y[:, 0], Y[:, 1], color='tab:blue', alpha = 0.5)
-	ax.scatter(cornerPointsTransformed[:, 0], cornerPointsTransformed[:, 1], marker='x', color='tab:orange', alpha = 0.5)
+	if cornerPointsTransformed != []:
+	    ax.scatter(cornerPointsTransformed[:, 0], cornerPointsTransformed[:, 1], marker='x', color='tab:orange', alpha = 0.5)
 
 	# display intended extent of the image
 	ax.set_xlim(xLimits[0], xLimits[1])
